@@ -1,4 +1,17 @@
-del %1.exe
+@Echo Off
+
+@REM clean build
+IF EXIST %1.exe del %1.exe
+IF EXIST %1.exe EXIT /B 1
+
 nasm -fOBJ %1.asm
+
+IF %ERRORLEVEL% EQU 0 echo COMPILATION OK 
+IF NOT %ERRORLEVEL% EQU 0 EXIT /B 1
+
 alink -oEXE %1.obj
+
+IF %ERRORLEVEL% EQU 0 echo LINKEDITION OK
+IF NOT %ERRORLEVEL% EQU 0 EXIT /B 1
+
 %1.exe
