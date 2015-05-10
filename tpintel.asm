@@ -6,20 +6,25 @@ segment datos data
 		        db 0
 		cadena  times 6 resb 1
 		
-		octalNum times 10 resb 1  
+		octalTxt times 10 resb 1  
+		octalTxtSize db 10
 		
 		caracter db  0
 		divisor  db  8 
 		numero  dw  0
+		        db '$'
 		
 		divdendo dw  0
 		
+		aux  times 10 resb 1
 		
-		esMenor  db 'ES 100!!!Es menor a 8','$'
+		esCuatro  db 'ES 4!!!','$'
+		esUno  db 'ES 1!','$'
+		
  		esMayorIgual  db 'Es mayor o igual a 8','$'
 		
 		factor  db  1
-		index       db  0
+		index   db  0
 		
 		salto db 13,10,'$'
 		
@@ -57,12 +62,12 @@ segment codigo code
 		call convertToOctal
 		
 		;muestro
-		lea  dx,[octalNum]
+		lea  dx,[octalTxt]
 		call printMsg
 		
 		;comparo con el 8
 		;cmp  byte[numero],100
-		;je   procesarMenor		
+		;je   procesarMayor		
 		
 		;lea dx,[esMayorIgual]		
 		;call printMsg ;imprimo mensaje
@@ -111,58 +116,92 @@ doConvertion:
 		
 		ret
 
-convertToOctal:
-        ; uso la variable indice para la posicon donde guardar
-		mov  byte[index],9	
+convertToOctal:		
+        ; uso la variable index para la posicion donde guardar
+		mov  ax,0
+		mov  al,byte[octalTxtSize]
+		mov  byte[index],al
+		mov  si,ax
+		mov  byte[octalTxt+si],'$'
+		
+		; uso aux para ver
+		mov  byte[aux+si],'$'
+		
+        sub  byte[index],1		
 		
 nacho:
 		; cargo de atras para adelante
-		mov ax,0
-		mov al,byte[index]
-		mov si,ax
+		mov  ax,0
+		mov  al,byte[index]
+		mov  si,ax
+		
+		; veo que tiene indice
+		mov  byte[aux+si],al
+		add  byte[aux+si],30h		
+		
+		lea  dx,[aux+si]		
+		call  printMsg
+		call  printEnter
 			
 		;limpio el registro ax		
-		mov ax, 0
+		mov  ax, 0
 		
-		;copio numero a ax
-		mov ax,word[numero]
+		;copio numero al registro ax
+		mov  ax,word[numero]
 		
 		;divido por divisor=8
-		div byte[divisor]
+		div  byte[divisor]		
 		
 		;guardo el resto en caracter
-		mov byte[octalNum+si],ah
-
-        ;le sumo 30h para convertirlo a ASCII
-     	add byte[octalNum+si],30h	
+		;con el offset de posicion
+		mov  byte[octalTxt+si],ah
 		
+		;copio el cociente antes de hacer una operacion aritmetica
+		mov  ah,0
+		mov  word[numero],ax
+		
+		;le sumo 30h para convertirlo a ASCII
+     	add  byte[octalTxt+si],30h
+		
+		cmp  byte[octalTxt+si],'4'
+		jne  sigue
+
+		lea dx,[octalTxt+si]		
+		call printMsg
+		call printEnter
+        
+sigue:		
 		;copio el cociente a numero
-		mov dx,0
-		mov dl,al
-        mov word[numero],dx
+		;cmp word[numero],12
+		;jne salir
+		
+		;cmp word[numero],000ch
+		;jne salir
 		
 		;resto 1 a indice
 		sub  byte[index],1
 		
-		; comparo si el cociento contra la base=8
-		cmp word[numero],0008h		
-        jge nacho
+		; comparo si el cociento con la base=8
+		cmp  word[numero],8
+        jge  nacho	
 		
-		mov byte[octalNum+si],al
+		mov  ax,0
+		mov  al,byte[index]
+		mov  si,ax
 		
-		;cierro el vector
-		mov ax,0
-		mov al,10
-		mov si,ax
-		mov byte[octalNum+si],'$'
+		; le sumo el cociente
+		mov  ax,word[numero]
+		
+		mov  byte[octalTxt+si],al
+		add  byte[octalTxt+si],30h	
 		
 		ret
 		
-procesarMenor:
+procesarMayor:
 
-		lea dx,[esMenor]		
+		lea dx,[esMayorIgual]		
 		call printMsg ;imprimo mensaje
-		jmp  salir
+		ret
 		
 printMsg:
 		mov ah,9
