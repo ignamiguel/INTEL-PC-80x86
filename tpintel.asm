@@ -1,4 +1,18 @@
+segment pila stack
+		resb 64
+		stacktop:
+		
 segment datos data
+        menuStart  db  '=========>  MENU <=========','$'
+		menuOptions  db  'Seleccionar opcion [1-3]','$'
+		menuDecimal  db  '[1] Convertir de decimal a octal','$'
+		menuOctal  db  '[2] Convertir de octal a decimal','$'
+		menuExit  db  '[3] Salir','$'
+		
+		           db  2
+		           db  0
+		menuInput  times 2 resb 1
+		
 		msgIng  db 'Ingrese una cadena (max 5): ','$'
 		msgMues db 10,13,'Ud ingreso: ','$'
 		
@@ -21,7 +35,8 @@ segment datos data
 		esCuatro  db 'ES 4!!!','$'
 		esUno  db 'ES 1!','$'
 		
- 		esMayorIgual  db 'Es mayor o igual a 8','$'
+ 		opcion1  db  'Opcion 1 - decimal a octal','$'
+		opcion2  db  'Opcion 2 - octal a decimal','$'
 		
 		factor  db  1
 		index   db  0
@@ -30,8 +45,27 @@ segment datos data
 		
 segment codigo code
 ..start:
+		;incialización de registro DS, SS y el puntero a la PILA
 		mov ax,datos
 		mov ds,ax
+		mov ax,pila
+		mov ss,ax
+		mov sp,stacktop
+		
+		call  printMenu ;imprimo menu
+
+		mov ah,1
+		int 21h ;se va a imprimir el carácter en pantalla
+		mov byte[menuInput],al	
+
+		;TODO valiar ingreso
+		cmp  byte[menuInput],'1'
+		je   opConvertToOctal
+		
+		cmp  byte[menuInput],'2'
+		je   opConvertToDecimal
+		
+		jmp  salir
 		
 		lea dx,[msgIng]
 		call printMsg ;pido ingreso
@@ -71,10 +105,48 @@ segment codigo code
 		
 		;lea dx,[esMayorIgual]		
 		;call printMsg ;imprimo mensaje
-		
+
 salir:		
 		mov ah,4ch
 		int 21h
+
+printMenu:
+		lea dx,[menuStart]
+		call printMsg
+		call printEnter
+		call printEnter
+		
+		lea dx,[menuOptions]
+		call printMsg
+		call printEnter
+		
+		lea dx,[menuDecimal]
+		call printMsg
+		call printEnter
+		
+		lea dx,[menuOctal]
+		call printMsg
+		call printEnter
+		
+		lea dx,[menuExit]
+		call printMsg
+		call printEnter
+		
+		ret
+
+opConvertToOctal:
+		call printEnter
+        lea dx,[opcion1]
+		call printMsg
+		call printEnter
+		ret
+
+opConvertToDecimal:
+		call printEnter
+        lea dx,[opcion2]
+		call printMsg
+		call printEnter
+		ret
 
 convertToBinary:
         ; cargo la longitud de los caracteres ingresados
@@ -197,11 +269,7 @@ sigue:
 		
 		ret
 		
-procesarMayor:
-
-		lea dx,[esMayorIgual]		
-		call printMsg ;imprimo mensaje
-		ret
+	
 		
 printMsg:
 		mov ah,9
