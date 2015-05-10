@@ -9,11 +9,10 @@ segment datos data
 		menuOctal  db  '[2] Convertir de octal a decimal','$'
 		menuExit  db  '[3] Salir','$'
 		
-		           db  2
-		           db  0
-		menuInput  times 2 resb 1
+		menuInput  resb 1
+		           db  '$'
 		
-		msgIng  db 'Ingrese una cadena (max 5): ','$'
+		msgIng  db 'Ingrese una numero en base 10 (max 5): ','$'
 		msgMues db 10,13,'Ud ingreso: ','$'
 		
                 db 6
@@ -38,6 +37,8 @@ segment datos data
  		opcion1  db  'Opcion 1 - decimal a octal','$'
 		opcion2  db  'Opcion 2 - octal a decimal','$'
 		
+		msgToOctal  db 'Numero en base 8: ','$'  
+		
 		factor  db  1
 		index   db  0
 		
@@ -45,6 +46,7 @@ segment datos data
 		
 segment codigo code
 ..start:
+inicio:
 		;incialización de registro DS, SS y el puntero a la PILA
 		mov ax,datos
 		mov ds,ax
@@ -54,9 +56,13 @@ segment codigo code
 		
 		call  printMenu ;imprimo menu
 
+		; pido ingresar opcion [1-3]
 		mov ah,1
-		int 21h ;se va a imprimir el carácter en pantalla
-		mov byte[menuInput],al	
+		int 21h ;obtengo la opcion ingresada
+		mov byte[menuInput],al
+
+        lea dx,[menuInput]
+        call printMsg		
 
 		;TODO valiar ingreso
 		cmp  byte[menuInput],'1'
@@ -65,46 +71,7 @@ segment codigo code
 		cmp  byte[menuInput],'2'
 		je   opConvertToDecimal
 		
-		jmp  salir
-		
-		lea dx,[msgIng]
-		call printMsg ;pido ingreso
-		
-		lea dx,[cadena-2] ; cargo desplaz del buffer
-		mov ah,0ah
-		int 21h ;ingreso de cadena
-		
-		mov ax,0
-		;copia la longitud de los caracters ingresados
-		mov al,[cadena-1]
-		mov si,ax
-		mov byte[cadena+si],'$' ; piso el 0Dh con el '$'para indicar fin de string para imprimir
-		
-		lea dx,[msgMues]		
-		call printMsg ;imprimo mensaje
-		
-		lea dx,[cadena]		
-		call printMsg ; imprimo lo ingresado
-
-		call printEnter
-		
-		; convierto caracteres a BPF c/s		
-		; y lo guardo el numero
-		call convertToBinary		
-		
-		; convierto a octal numero
-		call convertToOctal
-		
-		;muestro
-		lea  dx,[octalTxt]
-		call printMsg
-		
-		;comparo con el 8
-		;cmp  byte[numero],100
-		;je   procesarMayor		
-		
-		;lea dx,[esMayorIgual]		
-		;call printMsg ;imprimo mensaje
+		jmp  salir		
 
 salir:		
 		mov ah,4ch
@@ -135,20 +102,61 @@ printMenu:
 		ret
 
 opConvertToOctal:
+		;jmp  inicio 
 		call printEnter
         lea dx,[opcion1]
 		call printMsg
 		call printEnter
-		ret
+		 
+		;--------------
+		lea dx,[msgIng]
+		call printMsg ;pido ingreso
+		
+		lea dx,[cadena-2] ; cargo desplaz del buffer
+		mov ah,0ah
+		int 21h ;ingreso de cadena
+		
+		mov ax,0
+		;copia la longitud de los caracters ingresados
+		mov al,[cadena-1]
+		mov si,ax
+		mov byte[cadena+si],'$' ; piso el 0Dh con el '$'para indicar fin de string 
+		
+		lea dx,[msgMues]		
+		call printMsg ;imprimo mensaje
+		
+		lea dx,[cadena]		
+		call printMsg ; imprimo lo ingresado
+
+		call printEnter
+		
+		; convierto caracteres a BPF c/s		
+		; y lo guardo el numero
+		call convertToBPF		
+		
+		; convierto a octal numero
+		call convertToOctal
+		
+		;muestro
+		lea  dx,[msgToOctal]
+		call printMsg
+		lea  dx,[octalTxt]
+		call printMsg
+		
+		;--------------
+		call printEnter
+		jmp  inicio
 
 opConvertToDecimal:
+		;jmp  inicio  
 		call printEnter
         lea dx,[opcion2]
 		call printMsg
 		call printEnter
+		jmp  inicio
 		ret
 
-convertToBinary:
+convertToBPF:
         ; cargo la longitud de los caracteres ingresados
 		mov ax,0		
 		mov al,[cadena-1]
@@ -201,7 +209,7 @@ convertToOctal:
 		
         sub  byte[index],1		
 		
-nacho:
+makeDivision:
 		; cargo de atras para adelante
 		mov  ax,0
 		mov  al,byte[index]
@@ -234,28 +242,17 @@ nacho:
 		
 		;le sumo 30h para convertirlo a ASCII
      	add  byte[octalTxt+si],30h
-		
-		cmp  byte[octalTxt+si],'4'
-		jne  sigue
 
 		lea dx,[octalTxt+si]		
 		call printMsg
 		call printEnter
-        
-sigue:		
-		;copio el cociente a numero
-		;cmp word[numero],12
-		;jne salir
-		
-		;cmp word[numero],000ch
-		;jne salir
 		
 		;resto 1 a indice
 		sub  byte[index],1
 		
 		; comparo si el cociento con la base=8
 		cmp  word[numero],8
-        jge  nacho	
+        jge  makeDivision	
 		
 		mov  ax,0
 		mov  al,byte[index]
@@ -267,9 +264,7 @@ sigue:
 		mov  byte[octalTxt+si],al
 		add  byte[octalTxt+si],30h	
 		
-		ret
-		
-	
+		ret	
 		
 printMsg:
 		mov ah,9
@@ -277,7 +272,7 @@ printMsg:
 		ret
 		
 printEnter:
-		mov dx,salto			;realizo un salto de linea
+		mov dx,salto
 		mov ah,9h
 		int 21h
 		ret
