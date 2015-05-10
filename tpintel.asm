@@ -20,7 +20,7 @@ segment datos data
 		cadena  times 6 resb 1
 		
 		octalTxt times 10 resb 1  
-		octalTxtSize db 10
+		octalTxtSize db 9
 		
 		caracter db  0
 		divisor  db  8 
@@ -61,8 +61,8 @@ inicio:
 		int 21h ;obtengo la opcion ingresada
 		mov byte[menuInput],al
 
-        lea dx,[menuInput]
-        call printMsg		
+        ;lea dx,[menuInput]
+        ;call printMsg		
 
 		;TODO valiar ingreso
 		cmp  byte[menuInput],'1'
@@ -130,18 +130,11 @@ opConvertToOctal:
 
 		call printEnter
 		
-		; convierto caracteres a BPF c/s		
-		; y lo guardo el numero
+		; convierto caracteres a BPFs
 		call convertToBPF		
 		
-		; convierto a octal numero
+		; convierto a octal
 		call convertToOctal
-		
-		;muestro
-		lea  dx,[msgToOctal]
-		call printMsg
-		lea  dx,[octalTxt]
-		call printMsg
 		
 		;--------------
 		call printEnter
@@ -156,40 +149,49 @@ opConvertToDecimal:
 		jmp  inicio
 		ret
 
-convertToBPF:
-        ; cargo la longitud de los caracteres ingresados
-		mov ax,0		
-		mov al,[cadena-1]
+convertToBPF:        
+		; cargo la longitud de los caracteres ingresados en cx
+		mov  ax,0		
+		mov  al,[cadena-1]
 		mov  cx,ax
 		
-		; uso una variable para ver por cuanto multiplicar
+		;cargo valor por default en factor=1
+		mov  byte[factor],1
+		
+		;cargo valor por default en numero=01h
+		mov  word[numero],0
+		
+		;cargo en index la posicion desde donde copiar
 		mov  byte[index],al
-		sub  byte[index],01h
+		;cantidad de caracteres ingresados -1
+		sub  byte[index],1
 		
 doConvertion:		
-		; copio de atras para adelante
-		mov ax,0
-		mov al,byte[index]
-		mov si,ax
-		mov dl,byte[cadena+si]
+		;copio de atras para adelante
+		mov  ax,0
+		mov  al,byte[index]
+		mov  si,ax
+		mov  dl,byte[cadena+si]
 				
 		mov  byte[caracter],dl
 		
-		; lo transformo a numero restando al primero nibble 30
+		; lo transformo a numero restando 30h
 		sub  byte[caracter],30h
 		
-		;multiplico por factor
+		;multiplico por factor (potencia de 10)
+		mov  ax,0
 		mov  al,byte[factor]
 		mul  byte[caracter]
 		add  word[numero],ax
 		
 		; ajusto el factor multiplicando
+		; ***WARING*** en la 4 vuelta es 1000
 		mov ax,0
 		mov al,10
 		mul byte[factor]
 		mov byte[factor],al
 		
-		; resto 1 al indice
+		; resto 1 a index
 		sub  byte[index],1
 		
 		loop doConvertion
@@ -201,6 +203,7 @@ convertToOctal:
 		mov  ax,0
 		mov  al,byte[octalTxtSize]
 		mov  byte[index],al
+		;cargo el caracter de cierre de string en octalTxt[index]
 		mov  si,ax
 		mov  byte[octalTxt+si],'$'
 		
@@ -224,15 +227,14 @@ makeDivision:
 		call  printEnter
 			
 		;limpio el registro ax		
-		mov  ax, 0
-		
+		mov  ax, 0		
 		;copio numero al registro ax
 		mov  ax,word[numero]
 		
 		;divido por divisor=8
 		div  byte[divisor]		
 		
-		;guardo el resto en caracter
+		;copio el resto en caracter
 		;con el offset de posicion
 		mov  byte[octalTxt+si],ah
 		
@@ -250,10 +252,11 @@ makeDivision:
 		;resto 1 a indice
 		sub  byte[index],1
 		
-		; comparo si el cociento con la base=8
+		; comparo el cociento con la base=8
 		cmp  word[numero],8
         jge  makeDivision	
 		
+		; si es menor, cargo el cociente en octalTxt
 		mov  ax,0
 		mov  al,byte[index]
 		mov  si,ax
@@ -262,7 +265,35 @@ makeDivision:
 		mov  ax,word[numero]
 		
 		mov  byte[octalTxt+si],al
-		add  byte[octalTxt+si],30h	
+		add  byte[octalTxt+si],30h
+		
+		;muestro
+		lea  dx,[msgToOctal]
+		call printMsg
+		lea  dx,[octalTxt]
+		call printMsg
+		
+		;reseteo octalTxt
+		mov  cx,0
+		mov  cl,byte[octalTxtSize]
+		
+		mov  byte[index],0	
+
+resetOctalTxt:
+		mov  ax,0
+		mov  al,byte[index]
+		mov  si,ax
+		mov  byte[octalTxt+si],20h
+		add  byte[index],1
+		loop resetOctalTxt
+		
+	    ;vuelvo a mostrar
+		call printEnter
+		
+		lea  dx,[msgToOctal]
+		call printMsg
+		lea  dx,[octalTxt]
+		call printMsg
 		
 		ret	
 		
