@@ -28,7 +28,7 @@ segment datos data
 		decimalTxtSize db 9
 		
 		caracter db  0
-		divisor  db  8 
+		divisor  db  0 
 		numero  dw  0
 		        db '$'
 		
@@ -43,6 +43,7 @@ segment datos data
 		opcion2  db  'Opcion 2 - octal a decimal','$'
 		
 		msgToOctal  db 'Numero en base 8: ','$'  
+		msgToDecimal  db 'Numero en base 10: ','$'  
 		
 		factor  db  1
 		index   db  0
@@ -155,9 +156,12 @@ opConvertToDecimal:
 		call printEnter
 		
 		; convierto desde octal a BPF c/s
-		call convertOctalToBPF		
+		call convertOctalToBPF
+
+		;convierto de numero a caracter base 10
+		call convertToDecimal
 		
-		;call printEnter		
+		call printEnter		
 		jmp  inicio
 		
 ;==========================================================
@@ -215,7 +219,10 @@ doConvertionToBPF:
 ;==========================================================
 ;======     CONVERT FROM BPFs TO CHARACTER (BASE 8)
 ;==========================================================	
-convertToOctal:		
+convertToOctal:	
+		; cargo divisor con 8
+		mov  byte[divisor],8
+		
         ; uso la variable index para la posicion donde guardar
 		mov  ax,0
 		mov  al,byte[octalTxtSize]
@@ -333,7 +340,7 @@ convertOctalToBPF:
 		;cantidad de caracteres ingresados -1
 		sub  byte[index],1
 		
-doConvertionToBPFnacho:		
+doOctalConvertionToBPF:		
 		;copio de atras para adelante
 		mov  ax,0
 		mov  al,byte[index]
@@ -361,18 +368,96 @@ doConvertionToBPFnacho:
 		; resto 1 a index
 		sub  byte[index],1
 		
-		loop doConvertionToBPFnacho
-		
-		cmp  word[numero],100
-		je   salir
+		loop doOctalConvertionToBPF
 		
 		ret
-		;----------
-		;reseteo decimalTxt
-		;mov  cx,0
-		;mov  cl,byte[decimalTxtSize]
+
+;==========================================================
+;======     CONVERT FROM BPFs TO CHARACTER (BASE 10)
+;==========================================================		
+convertToDecimal:
+		; cargo divisor con 10
+		mov  byte[divisor],10
 		
-		;mov  byte[index],0	
+		; uso la variable index para la posicion donde guardar
+		mov  ax,0
+		mov  al,byte[decimalTxtSize]
+		mov  byte[index],al
+		;cargo el caracter de cierre de string en decimalTxt[index]
+		mov  si,ax
+		mov  byte[decimalTxt+si],'$'
+		
+		; uso aux para ver
+		mov  byte[aux+si],'$'
+		
+        sub  byte[index],1		
+		
+makeDivisionDecimal:
+		; cargo de atras para adelante
+		mov  ax,0
+		mov  al,byte[index]
+		mov  si,ax
+		
+		; veo que tiene indice
+		mov  byte[aux+si],al
+		add  byte[aux+si],30h		
+		
+		lea  dx,[aux+si]		
+		call  printMsg
+		call  printEnter
+			
+		;limpio el registro ax		
+		mov  ax, 0		
+		;copio numero al registro ax
+		mov  ax,word[numero]
+		
+		;divido por divisor=10
+		div  byte[divisor]		
+		
+		;copio el resto en caracter
+		;con el offset de posicion
+		mov  byte[decimalTxt+si],ah
+		
+		;copio el cociente antes de hacer una operacion aritmetica
+		mov  ah,0
+		mov  word[numero],ax
+		
+		;le sumo 30h para convertirlo a ASCII
+     	add  byte[decimalTxt+si],30h
+
+		lea dx,[decimalTxt+si]		
+		call printMsg
+		call printEnter
+		
+		;resto 1 a indice
+		sub  byte[index],1
+		
+		; comparo el cociento con la base=10
+		cmp  word[numero],10
+        jge  makeDivisionDecimal	
+		
+		; si es menor, cargo el cociente en decimalTxt
+		mov  ax,0
+		mov  al,byte[index]
+		mov  si,ax
+		
+		; le sumo el cociente
+		mov  ax,word[numero]
+		
+		mov  byte[decimalTxt+si],al
+		add  byte[decimalTxt+si],30h
+		
+		;muestro
+		lea  dx,[msgToDecimal]
+		call printMsg
+		lea  dx,[decimalTxt]
+		call printMsg
+		
+		;reseteo decimalTxt
+		mov  cx,0
+		mov  cl,byte[decimalTxtSize]
+		
+		mov  byte[index],0	
 
 resetDecimalTxt:
 		mov  ax,0
@@ -383,10 +468,8 @@ resetDecimalTxt:
 		loop resetDecimalTxt
 		
 	    ;vuelvo a mostrar
-		call printEnter
-		
+		call printEnter		
 		ret	
-		;-----------------
 
 printMenu:
 		lea dx,[menuStart]
