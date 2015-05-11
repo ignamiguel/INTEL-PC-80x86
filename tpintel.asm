@@ -12,7 +12,9 @@ segment datos data
 		menuInput  resb 1
 		           db  '$'
 		
-		msgIng  db 'Ingrese una numero en base 10 (max 5): ','$'
+		msgIngBase10  db 'Ingrese una numero en base 10 (max 3): ','$'
+		msgIngBase8  db 'Ingrese una numero en base 8 (max 3): ','$'
+		
 		msgMues db 10,13,'Ud ingreso: ','$'
 		
                 db 6
@@ -21,6 +23,9 @@ segment datos data
 		
 		octalTxt times 10 resb 1  
 		octalTxtSize db 9
+		
+		decimalTxt times 10 resb 1
+		decimalTxtSize db 9
 		
 		caracter db  0
 		divisor  db  8 
@@ -46,7 +51,6 @@ segment datos data
 		
 segment codigo code
 ..start:
-inicio:
 		;incialización de registro DS, SS y el puntero a la PILA
 		mov ax,datos
 		mov ds,ax
@@ -54,15 +58,14 @@ inicio:
 		mov ss,ax
 		mov sp,stacktop
 		
-		call  printMenu ;imprimo menu
+inicio:
+		;imprimo menu
+		call  printMenu 
 
 		; pido ingresar opcion [1-3]
 		mov ah,1
 		int 21h ;obtengo la opcion ingresada
 		mov byte[menuInput],al
-
-        ;lea dx,[menuInput]
-        ;call printMsg		
 
 		;TODO valiar ingreso
 		cmp  byte[menuInput],'1'
@@ -71,45 +74,24 @@ inicio:
 		cmp  byte[menuInput],'2'
 		je   opConvertToDecimal
 		
-		jmp  salir		
-
+		jmp  salir
 salir:		
 		mov ah,4ch
 		int 21h
 
-printMenu:
-		lea dx,[menuStart]
-		call printMsg
-		call printEnter
-		call printEnter
-		
-		lea dx,[menuOptions]
-		call printMsg
-		call printEnter
-		
-		lea dx,[menuDecimal]
-		call printMsg
-		call printEnter
-		
-		lea dx,[menuOctal]
-		call printMsg
-		call printEnter
-		
-		lea dx,[menuExit]
-		call printMsg
-		call printEnter
-		
-		ret
-
-opConvertToOctal:
-		;jmp  inicio 
+;******************************************************
+;****                                              ****
+;****       CONVERT FROM DECIMAL TO OCTAL          ****
+;****                                              ****
+;******************************************************
+opConvertToOctal: 
+		; convierte un numero en base 10 a base 8
 		call printEnter
         lea dx,[opcion1]
 		call printMsg
 		call printEnter
-		 
-		;--------------
-		lea dx,[msgIng]
+
+		lea dx,[msgIngBase10]
 		call printMsg ;pido ingreso
 		
 		lea dx,[cadena-2] ; cargo desplaz del buffer
@@ -130,26 +112,58 @@ opConvertToOctal:
 
 		call printEnter
 		
-		; convierto caracteres a BPFs
-		call convertToBPF		
+		; convierto caracteres (decimales) a BPFs
+		call convertDecimalToBPF		
 		
 		; convierto a octal
 		call convertToOctal
 		
-		;--------------
 		call printEnter
 		jmp  inicio
-
+		
+;******************************************************
+;****                                              ****
+;****       CONVERT FROM OCTAL TO DECIMAL          ****
+;****                                              ****
+;******************************************************
 opConvertToDecimal:
-		;jmp  inicio  
+		;convierte un numero en base 8 a base 10
 		call printEnter
         lea dx,[opcion2]
 		call printMsg
-		call printEnter
-		jmp  inicio
-		ret
+		call printEnter		 
+		;--------------
+		lea dx,[msgIngBase8]
+		call printMsg ;pido ingreso
+		
+		lea dx,[cadena-2] ; cargo desplaz del buffer
+		mov ah,0ah
+		int 21h ;ingreso de cadena
+		
+		mov ax,0
+		;copia la longitud de los caracters ingresados
+		mov al,[cadena-1]
+		mov si,ax
+		mov byte[cadena+si],'$' ; piso el 0Dh con el '$'para indicar fin de string 
+		
+		lea dx,[msgMues]		
+		call printMsg ;imprimo mensaje
+		
+		lea dx,[cadena]		
+		call printMsg ; imprimo lo ingresado
 
-convertToBPF:        
+		call printEnter
+		
+		; convierto desde octal a BPF c/s
+		call convertOctalToBPF		
+		
+		;call printEnter		
+		jmp  inicio
+		
+;==========================================================
+;======     CONVERT FROM CHARACTER (BASE 10) TO BPFs
+;==========================================================	
+convertDecimalToBPF:        
 		; cargo la longitud de los caracteres ingresados en cx
 		mov  ax,0		
 		mov  al,[cadena-1]
@@ -166,7 +180,7 @@ convertToBPF:
 		;cantidad de caracteres ingresados -1
 		sub  byte[index],1
 		
-doConvertion:		
+doConvertionToBPF:		
 		;copio de atras para adelante
 		mov  ax,0
 		mov  al,byte[index]
@@ -194,10 +208,13 @@ doConvertion:
 		; resto 1 a index
 		sub  byte[index],1
 		
-		loop doConvertion
+		loop doConvertionToBPF
 		
 		ret
 
+;==========================================================
+;======     CONVERT FROM BPFs TO CHARACTER (BASE 8)
+;==========================================================	
 convertToOctal:		
         ; uso la variable index para la posicion donde guardar
 		mov  ax,0
@@ -290,12 +307,110 @@ resetOctalTxt:
 	    ;vuelvo a mostrar
 		call printEnter
 		
-		lea  dx,[msgToOctal]
-		call printMsg
-		lea  dx,[octalTxt]
-		call printMsg
+		;lea  dx,[msgToOctal]
+		;call printMsg
+		;lea  dx,[octalTxt]
+		;call printMsg
 		
 		ret	
+;==========================================================
+;======     CONVERT FROM CHARACTER (BASE 8) TO BPFs
+;==========================================================	
+convertOctalToBPF:
+		; cargo la longitud de los caracteres ingresados en cx
+		mov  ax,0		
+		mov  al,[cadena-1]
+		mov  cx,ax
+		
+		;cargo valor por default en factor=1
+		mov  byte[factor],1
+		
+		;cargo valor por default en numero=00h
+		mov  word[numero],0
+		
+		;cargo en index la posicion desde donde copiar
+		mov  byte[index],al
+		;cantidad de caracteres ingresados -1
+		sub  byte[index],1
+		
+doConvertionToBPFnacho:		
+		;copio de atras para adelante
+		mov  ax,0
+		mov  al,byte[index]
+		mov  si,ax
+		mov  dl,byte[cadena+si]
+				
+		mov  byte[caracter],dl
+		
+		; lo transformo a numero restando 30h
+		sub  byte[caracter],30h
+		
+		;multiplico por factor (potencia de 8)
+		mov  ax,0
+		mov  al,byte[factor]
+		mul  byte[caracter]
+		add  word[numero],ax
+		
+		; ajusto el factor multiplicando
+		; ***WARING*** en la 4 vuelta es 4096
+		mov ax,0
+		mov al,8
+		mul byte[factor]
+		mov byte[factor],al
+		
+		; resto 1 a index
+		sub  byte[index],1
+		
+		loop doConvertionToBPFnacho
+		
+		cmp  word[numero],100
+		je   salir
+		
+		ret
+		;----------
+		;reseteo decimalTxt
+		;mov  cx,0
+		;mov  cl,byte[decimalTxtSize]
+		
+		;mov  byte[index],0	
+
+resetDecimalTxt:
+		mov  ax,0
+		mov  al,byte[index]
+		mov  si,ax
+		mov  byte[decimalTxt+si],20h
+		add  byte[index],1
+		loop resetDecimalTxt
+		
+	    ;vuelvo a mostrar
+		call printEnter
+		
+		ret	
+		;-----------------
+
+printMenu:
+		lea dx,[menuStart]
+		call printMsg
+		call printEnter
+		call printEnter
+		
+		lea dx,[menuOptions]
+		call printMsg
+		call printEnter
+		
+		lea dx,[menuDecimal]
+		call printMsg
+		call printEnter
+		
+		lea dx,[menuOctal]
+		call printMsg
+		call printEnter
+		
+		lea dx,[menuExit]
+		call printMsg
+		call printEnter
+		
+		ret
 		
 printMsg:
 		mov ah,9
