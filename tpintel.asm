@@ -50,6 +50,8 @@ segment datos data
 		
 		salto db 13,10,'$'
 		
+		menuInputInvalidMsg  db  'Opcion invalida. Vuelva a intentar...','$' 
+		
 segment codigo code
 ..start:
 		;incialización de registro DS, SS y el puntero a la PILA
@@ -75,7 +77,11 @@ inicio:
 		cmp  byte[menuInput],'2'
 		je   opConvertToDecimal
 		
-		jmp  salir
+		cmp  byte[menuInput],'3'
+		je  salir		
+		
+		call printMenuInputInvalid
+		jmp inicio
 salir:		
 		mov ah,4ch
 		int 21h
@@ -246,9 +252,10 @@ makeDivision:
 		mov  byte[aux+si],al
 		add  byte[aux+si],30h		
 		
-		lea  dx,[aux+si]		
-		call  printMsg
-		call  printEnter
+		;comento para no mostrar el valor de index
+		;lea  dx,[aux+si]		
+		;call  printMsg
+		;call  printEnter
 			
 		;limpio el registro ax		
 		mov  ax, 0		
@@ -269,9 +276,10 @@ makeDivision:
 		;le sumo 30h para convertirlo a ASCII
      	add  byte[octalTxt+si],30h
 
-		lea dx,[octalTxt+si]		
-		call printMsg
-		call printEnter
+		; comento para no mostrar el valor de octalTxt
+		;lea dx,[octalTxt+si]		
+		;call printMsg
+		;call printEnter
 		
 		;resto 1 a indice
 		sub  byte[index],1
@@ -402,9 +410,10 @@ makeDivisionDecimal:
 		mov  byte[aux+si],al
 		add  byte[aux+si],30h		
 		
-		lea  dx,[aux+si]		
-		call  printMsg
-		call  printEnter
+		; comento para no mostrar
+		;lea  dx,[aux+si]		
+		;call  printMsg
+		;call  printEnter
 			
 		;limpio el registro ax		
 		mov  ax, 0		
@@ -425,9 +434,10 @@ makeDivisionDecimal:
 		;le sumo 30h para convertirlo a ASCII
      	add  byte[decimalTxt+si],30h
 
-		lea dx,[decimalTxt+si]		
-		call printMsg
-		call printEnter
+		; comento para no mostrar
+		;lea dx,[decimalTxt+si]		
+		;call printMsg
+		;call printEnter
 		
 		;resto 1 a indice
 		sub  byte[index],1
@@ -467,10 +477,12 @@ resetDecimalTxt:
 		add  byte[index],1
 		loop resetDecimalTxt
 		
-	    ;vuelvo a mostrar
 		call printEnter		
 		ret	
-
+		
+;==========================
+;====       MENU       ====            
+;==========================
 printMenu:
 		lea dx,[menuStart]
 		call printMsg
@@ -493,6 +505,15 @@ printMenu:
 		call printMsg
 		call printEnter
 		
+		ret
+		
+printMenuInputInvalid:
+		call printEnter
+		call printEnter
+		lea dx,[menuInputInvalidMsg]
+		call printMsg
+		call printEnter
+		call printEnter
 		ret
 		
 printMsg:
