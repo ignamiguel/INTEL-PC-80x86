@@ -50,7 +50,11 @@ segment datos data
 		
 		salto db 13,10,'$'
 		
+		; Mensajes de errores
 		menuInputInvalidMsg  db  'Opcion invalida. Vuelva a intentar...','$' 
+		errorMaxLenth  db  'Ingresar hasta 3 digitos. Vuelva a intentar...','$' 
+		errorOnlyDigit  db  'Ingresar solo digitos en B10 [0-9]. Vuelva a intentar...','$' 
+		errorOnlyOctalDigit  db  'Ingresar solo digitos en B8 [0-7]. Vuelva a intentar...','$' 
 		
 segment codigo code
 ..start:
@@ -67,10 +71,10 @@ inicio:
 
 		; pido ingresar opcion [1-3]
 		mov ah,1
-		int 21h ;obtengo la opcion ingresada
+		int 21h
+		;obtengo la opcion ingresada		
 		mov byte[menuInput],al
 
-		;TODO valiar ingreso
 		cmp  byte[menuInput],'1'
 		je   opConvertToOctal
 		
@@ -98,26 +102,35 @@ opConvertToOctal:
 		call printMsg
 		call printEnter
 
+		;pido ingreso
 		lea dx,[msgIngBase10]
-		call printMsg ;pido ingreso
+		call printMsg 
 		
-		lea dx,[cadena-2] ; cargo desplaz del buffer
+		; cargo desplaz del buffer
+		lea dx,[cadena-2] 
+		;ingreso de cadena
 		mov ah,0ah
-		int 21h ;ingreso de cadena
+		int 21h 
 		
 		mov ax,0
 		;copia la longitud de los caracters ingresados
-		mov al,[cadena-1]
+		mov al,[cadena-1]		
 		mov si,ax
-		mov byte[cadena+si],'$' ; piso el 0Dh con el '$'para indicar fin de string 
+		; piso el 0Dh con el '$'para indicar fin de string 
+		mov byte[cadena+si],'$' 
 		
+		;imprimo mensaje
 		lea dx,[msgMues]		
-		call printMsg ;imprimo mensaje
+		call printMsg 
 		
+		; imprimo lo ingresado
 		lea dx,[cadena]		
-		call printMsg ; imprimo lo ingresado
+		call printMsg 
 
 		call printEnter
+		
+		; validar cadena
+		call validateDecimalInput
 		
 		; convierto caracteres (decimales) a BPFs
 		call convertDecimalToBPF		
@@ -139,27 +152,36 @@ opConvertToDecimal:
         lea dx,[opcion2]
 		call printMsg
 		call printEnter		 
-		;--------------
-		lea dx,[msgIngBase8]
-		call printMsg ;pido ingreso
 		
-		lea dx,[cadena-2] ; cargo desplaz del buffer
+		;pido ingreso
+		lea dx,[msgIngBase8]
+		call printMsg 
+		
+		; cargo desplaz del buffer
+		lea dx,[cadena-2] 
+		;ingreso de cadena
 		mov ah,0ah
-		int 21h ;ingreso de cadena
+		int 21h 
 		
 		mov ax,0
 		;copia la longitud de los caracters ingresados
 		mov al,[cadena-1]
+		; piso el 0Dh con el '$'para indicar fin de string 
 		mov si,ax
-		mov byte[cadena+si],'$' ; piso el 0Dh con el '$'para indicar fin de string 
+		mov byte[cadena+si],'$' 
 		
+		;imprimo mensaje
 		lea dx,[msgMues]		
-		call printMsg ;imprimo mensaje
+		call printMsg 
 		
+		; imprimo lo ingresado
 		lea dx,[cadena]		
-		call printMsg ; imprimo lo ingresado
+		call printMsg 
 
 		call printEnter
+		
+		;validar ingreso
+		call validateOctalInput
 		
 		; convierto desde octal a BPF c/s
 		call convertOctalToBPF
@@ -169,6 +191,93 @@ opConvertToDecimal:
 		
 		call printEnter		
 		jmp  inicio
+
+;==========================================================
+;======     VALIDATE DECIMAL INPUT
+;==========================================================
+validateDecimalInput:
+		; cadena tiene que tener longitud 30h
+		mov ax,0
+		mov al,[cadena-1]
+		cmp al,3
+		jg  printMaxLength
+		
+		;cadena debe ser solo digitos [0-9]
+		;cargo la longitud de los caracteres ingresados en cx
+		mov  ax,0		
+		mov  al,[cadena-1]
+		mov  cx,ax
+		;cargo en index la posicion 0
+		mov  byte[index],0
+		
+doValidation:
+		;valido uno a uno
+		mov  ax,0
+		mov  al,byte[index]
+		mov  si,ax
+		mov  dl,byte[cadena+si]
+				
+		mov  byte[caracter],dl
+		; lo transformo a numero restando 30h
+		sub  byte[caracter],30h
+		
+		;comparo
+		cmp  byte[caracter],0
+		jl   printOnlyDigits
+		
+		cmp byte[caracter],9
+		jg  printOnlyDigits
+		
+		; sumo 1 a index
+		add  byte[index],1
+		
+		loop doValidation
+		
+		ret
+
+;==========================================================
+;======     VALIDATE OCTAL INPUT
+;==========================================================
+validateOctalInput:
+		; cadena tiene que tener longitud 30h
+		mov ax,0
+		mov al,[cadena-1]
+		cmp al,3
+		jg  printMaxLength
+		
+		;cadena debe ser solo digitos [0-7]
+		;cargo la longitud de los caracteres ingresados en cx
+		mov  ax,0		
+		mov  al,[cadena-1]
+		mov  cx,ax
+		;cargo en index la posicion 0
+		mov  byte[index],0
+		
+doOctalValidation:
+		;valido uno a uno
+		mov  ax,0
+		mov  al,byte[index]
+		mov  si,ax
+		mov  dl,byte[cadena+si]
+				
+		mov  byte[caracter],dl
+		; lo transformo a numero restando 30h
+		sub  byte[caracter],30h
+		
+		;comparo
+		cmp  byte[caracter],0
+		jl   printOnlyOctalDigits
+		
+		cmp byte[caracter],7
+		jg  printOnlyOctalDigits
+		
+		; sumo 1 a index
+		add  byte[index],1
+		
+		loop doOctalValidation
+		
+		ret
+		
 		
 ;==========================================================
 ;======     CONVERT FROM CHARACTER (BASE 10) TO BPFs
@@ -481,7 +590,7 @@ resetDecimalTxt:
 		ret	
 		
 ;==========================
-;====       MENU       ====            
+;====       MENU       ====
 ;==========================
 printMenu:
 		lea dx,[menuStart]
@@ -506,6 +615,39 @@ printMenu:
 		call printEnter
 		
 		ret
+		
+;=============================
+;====    UTILITARIOS      ====
+;=============================		
+printMaxLength:
+		call printEnter
+		call printEnter
+		lea dx,[errorMaxLenth]
+		call printMsg
+		call printEnter
+		call printEnter
+		
+		jmp inicio
+
+printOnlyDigits:
+		call printEnter
+		call printEnter
+		lea dx,[errorOnlyDigit]
+		call printMsg
+		call printEnter
+		call printEnter
+		
+		jmp inicio
+		
+printOnlyOctalDigits:
+		call printEnter
+		call printEnter
+		lea dx,[errorOnlyOctalDigit]
+		call printMsg
+		call printEnter
+		call printEnter
+		
+		jmp inicio
 		
 printMenuInputInvalid:
 		call printEnter
